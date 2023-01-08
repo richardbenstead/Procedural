@@ -1,9 +1,7 @@
-# Fractals. Mandlebrot and Julia set
-* Interactive with GL window
-* An excuse to try std::complex
+# Fun procedural animation as a prototype for an embedded project where I don't have memory for lookup tables
+# Uses linux and GL
 
 # Requires
 libglfw3-dev
 
 ## Screenshots
-![MB](output/Mb1.png)
