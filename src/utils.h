@@ -118,3 +118,15 @@ private:
   size_t mPaletteId{};
   Pixel mPalette[SIZE];
 };
+
+// random float
+inline double randf(double max) { return (rand() % (int)(max * 100)) / 100.0; };
+
+// random float centered on zero
+inline double randfc(double max) {
+  return (rand() % (int)(max * 100)) / 100.0 - max / 2.0;
+};
+
+inline double clip(double x, double down, double up) {
+  return std::max(down, std::min(up, x));
+};

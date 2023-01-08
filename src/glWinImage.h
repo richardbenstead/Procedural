@@ -15,14 +15,12 @@ inline double fastSqrt(double x) {
 
   double guess = x / 2;
   double error = x - guess * guess;
-  while (error > 0.001) {
+  while (error > 0.1) {
     guess = (guess + x / guess) / 2;
     error = x - guess * guess;
   }
   return guess;
 }
-
-inline double powI(double x, int i) { return i > 0 ? x * powI(x, i - 1) : 1; }
 
 class GlWinImage {
   static constexpr uint16_t IMAGE_SIZE = 1200;
@@ -83,108 +81,111 @@ private:
     }
     mTime += 1e-1;
 
-    c1.updateFromOther(c2._x, c2._y);
-    c1.updateFromOther(c3._x, c3._y);
-    c1.updateFromOther(0, 0);
-    c1.updateFromOther(0, 0);
-
-    c2.updateFromOther(c1._x, c1._y);
-    c2.updateFromOther(c3._x, c3._y);
-    c2.updateFromOther(0, 0);
-    c2.updateFromOther(0, 0);
-
-    c3.updateFromOther(c1._x, c1._y);
-    c3.updateFromOther(c2._x, c2._y);
-    c3.updateFromOther(0, 0);
-    c3.updateFromOther(0, 0);
-
-    c1.updateVel();
-    c2.updateVel();
-    c3.updateVel();
+    for (Calc &calc1 : arrCalc) {
+      for (Calc const &calc2 : arrCalc) {
+        if (calc1.id != calc2.id) {
+          calc1.updateFromOther(calc2._x, calc2._y, 1);
+          calc1.updateFromOther(0, 0, 2);
+        }
+      }
+      calc1.updateVel();
+    }
   }
 
   class Calc {
   public:
-    Calc() { randVals(); }
-    double getVal(double x, double y) {
+    Calc() {
+      randVals();
+      count++;
+    }
+
+    double getVal(double x, double y) const {
       x += _x;
       y += _y;
 
-      double val = x * x * bXX + y * y * bYY + y * x * bXY;
+      double val = x * x * bXX + y * y * bYY + y * x * bXY + y * x * x * bXXY +
+                   x * y * y * bYYX;
       double sign = val > 0 ? 1.0 : -1.0;
-      val = sign * fastSqrt(abs(val)) / size + offset;
+      val = sign * fastSqrt(abs(val)) * invSize + offset;
       val = clip(val, -range, range);
+      // std::cout << val << std::endl;
       return val;
     }
-
-    double randf(double max) { return (rand() % (int)(max * 100)) / 100.0; };
-    double randfc(double max) {
-      return (rand() % (int)(max * 100)) / 100.0 - max / 2.0;
-    };
-    double clip(double x, double down, double up) {
-      return std::max(down, std::min(up, x));
-    };
 
     void randVals() {
 
       // random initial location
-      _x = randfc(4);
-      _y = randfc(4);
+      _x = randfc(5.5);
+      _y = randfc(5.5);
 
       // initial velocity
-      dx = randfc(0.2);
-      dy = randfc(0.2);
+      dx = randfc(0.3);
+      dy = randfc(0.3);
 
       // params for this shape
+      bXXY = randfc(0.5);
+      bYYX = randfc(0.5);
       bXX = randfc(1) + 1.0;
       bYY = randfc(1) + 1.0;
-      bXY = randfc(2);
-      offset = randfc(3);
+      angle = randf(2 * M_PI);
+      dAngle = 0;
+      bXY = cos(angle);
+      offset = randfc(1) - 2;
 
-      range = 2; // range of output values, which affects number of mod lines
+      range = 1; // range of output values, which affects number of mod lines
 
-      size = 2.0 + randf(5);
+      size = 5.0 + randf(2);
+      invSize = 1.0 / size;
+      std::cout << "x: " << _x << " y: " << _y << " dx: " << dx << " dy: " << dy
+                << std::endl;
       std::cout << "bXX: " << bXX << " bYY: " << bYY << " bXY: " << bXY
                 << std::endl;
       std::cout << "Size: " << size << " offset: " << offset
                 << " range: " << range << std::endl;
     }
 
-    void updateFromOther(double x, double y) {
+    void updateFromOther(double x, double y, double wgt) {
       const auto sqr = [](double x) {
         return std::min(5.0, x * x) * (x > 0 ? 1.0 : -1.0);
       };
-      double maxAcc = 0.01;
-      dx += clip(0.01 / sqr(x - _x), -maxAcc, maxAcc);
-      dy += clip(0.01 / sqr(y - _y), -maxAcc, maxAcc);
+      double maxAcc = 0.001;
+      double updRate = 0.001;
+      dx += clip(wgt * updRate / sqr(x - _x), -maxAcc, maxAcc);
+      dy += clip(wgt * updRate / sqr(y - _y), -maxAcc, maxAcc);
     }
+
     void updateVel() {
       _x += dx;
       _y += dy;
-      // bXY += randfc(0.02) + 0.05 * (0-bXY);
-      // bXX += randfc(0.02) + 0.05 * (1-bXX);
-      // bXX += randfc(0.02) + 0.05 * (1-bYY);
+      dAngle += randfc(0.05);
+      dAngle = clip(dAngle, -0.05, 0.05);
+      angle += dAngle;
+      bXY = cos(angle);
       size += randfc(0.1) + 0.1 * (5 - size);
     }
 
-    double bXX, bYY, bXY;
+    double bXX, bYY, bXY, bXXY, bYYX;
+    double angle, dAngle;
     double offset;
-    double _x, _y;
-    double dx, dy;
-    double size;
-    double range;
+    double _x, _y, dx, dy;
+    double size, range;
+    double invSize;
+    static int count;
+    int id = count;
   };
 
-  Calc c1, c2, c3;
+  std::array<Calc, 4> arrCalc;
 
   inline double getValue(XYPair loc) {
-    loc.x *= 2;
-    loc.y *= 2;
+    double x = loc.x * 5;
+    double y = loc.y * 5;
 
-    double val = c1.getVal(loc.x, loc.y) * c2.getVal(loc.x, loc.y) *
-                 c3.getVal(loc.x, loc.y);
+    double val = 1;
+    for (Calc const &calc : arrCalc) {
+      val *= calc.getVal(x, y);
+    }
 
-    return std::max(0.0, std::min(1.0, fmod(-val, 2)));
+    return std::max(0.0, std::min(1.0, fmod(mInv ? -val : val, 2)));
   }
 
   void drawImage(const int width, const int height) {
@@ -252,11 +253,13 @@ private:
         mFrame.reset();
       if (key == 'P')
         mPause = !mPause;
+      if (key == 'I')
+        mInv = !mInv;
       if (key == ' ') {
         std::cout << "\nRand Vals:" << std::endl;
-        c1.randVals();
-        c2.randVals();
-        c3.randVals();
+        for (Calc &calc : arrCalc) {
+          calc.randVals();
+        }
       }
       if (key == 'C')
         mPalette.nextPalette();
@@ -270,8 +273,11 @@ private:
   FrameType mFrame;
   double mTime = 0;
 
-  bool mMouseLeftDown{false};
+  bool mMouseLeftDown = false;
   XYPair mLastMousePos{};
   bool mPause = false;
-  bool mQuit{false};
+  bool mInv = false;
+  bool mQuit = false;
 };
+
+int GlWinImage::Calc::count = 0;
