@@ -72,6 +72,24 @@ public:
       static_cast<GlWinImage *>(glfwGetWindowUserPointer(window))
           ->keyEvent(window, key, sc, action, mods);
     });
+
+    auto setVals = [&](int id, double y, double x, double XX, double YY, double XY, double offs, double size) {
+	    Calc& c = arrCalc[id];
+	    c._x=x;
+	    c._y=y;
+	    c.bXX=XX;
+	    c.bYY=YY;
+	    c.bXY=XY;
+	    c.offset=offs;
+	    c.size=size;
+	    c.invSize=1.0/size;
+	    c.printVals();
+    };
+
+    //setVals(2, -4, 4, 2, 0.1, 0, -2, 1);
+    //setVals(3, 4, 4, 0.1, 2, 0, -2, 1);
+    //setVals(0, -4, -4, 1, 0.5, 0, -2, 1);
+    //setVals(1, 4, -4, 0.5, 1, 0, -2, 1);
   }
 
 private:
@@ -102,18 +120,15 @@ private:
     double getVal(double x, double y) const {
       x += _x;
       y += _y;
-
       double val = x * x * bXX + y * y * bYY + y * x * bXY + y * x * x * bXXY +
                    x * y * y * bYYX;
       double sign = val > 0 ? 1.0 : -1.0;
       val = sign * fastSqrt(abs(val)) * invSize + offset;
       val = clip(val, -range, range);
-      // std::cout << val << std::endl;
       return val;
     }
 
     void randVals() {
-
       // random initial location
       _x = randfc(5.5);
       _y = randfc(5.5);
@@ -130,12 +145,15 @@ private:
       angle = randf(2 * M_PI);
       dAngle = 0;
       bXY = cos(angle);
-      offset = randfc(1) - 2;
+      offset = randfc(2);
 
       range = 1; // range of output values, which affects number of mod lines
 
       size = 5.0 + randf(2);
       invSize = 1.0 / size;
+      printVals();
+    }
+    void printVals() {
       std::cout << "x: " << _x << " y: " << _y << " dx: " << dx << " dy: " << dy
                 << std::endl;
       std::cout << "bXX: " << bXX << " bYY: " << bYY << " bXY: " << bXY
@@ -164,12 +182,12 @@ private:
       size += randfc(0.1) + 0.1 * (5 - size);
     }
 
-    double bXX, bYY, bXY, bXXY, bYYX;
-    double angle, dAngle;
-    double offset;
-    double _x, _y, dx, dy;
-    double size, range;
-    double invSize;
+    double bXX{}, bYY{}, bXY{}, bXXY{}, bYYX{};
+    double angle{}, dAngle{};
+    double offset{};
+    double _x{}, _y{}, dx{}, dy{};
+    double size{}, range{1};
+    double invSize{};;
     static int count;
     int id = count;
   };
