@@ -4,6 +4,8 @@
 #include <cmath>
 #include <iostream>
 
+static constexpr uint16_t IMAGE_SIZE = 1200;
+
 struct XYPair {
     XYPair operator*(const float f) const { return XYPair{x * f, y * f}; }
     XYPair operator-(const XYPair &xy) const { return XYPair{x - xy.x, y - xy.y}; }

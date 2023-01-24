@@ -11,11 +11,11 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-deprecated-copy")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-deprecated-copy -Wno-ignored-qualifiers")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O1")
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -DNDEBUG")
 
 set(PRJ_NAME "procedural")
 project(${PRJ_NAME})
-add_executable(${PRJ_NAME} src/main.cpp)
+add_executable(${PRJ_NAME} src/main.cpp libfixmath/fix16.c)
 target_link_libraries(${PRJ_NAME} PUBLIC GL glfw dl pthread)

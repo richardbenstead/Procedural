@@ -1,33 +1,29 @@
 #pragma once
 
 #include "utils.h"
-#include "eigen3/Eigen/Dense"
-
-inline float fastSqrt(float x) {
-    if (x <= 0) {
-        return 0;
-    }
-
-    float guess = x / 2;
-    float error = x - guess * guess;
-    while (error > 0.1) {
-        guess = (guess + x / guess) / 2;
-        error = x - guess * guess;
-    }
-    return guess;
-}
+#include "libfixmath/fix16.hpp"
 
 class Calc {
   public:
-    using coef_t = Eigen::Matrix<float, 6, 1>;
     Calc() {
         randVals();
         count++;
     }
 
-    inline float getVal(coef_t const& v) const {
-        float val = v.dot(betas_);
+    float xCache_[IMAGE_SIZE];
+    float yPartial_;
+
+    inline float getVal(int xIdx, float xy) const {
+        float val = xCache_[xIdx] + yPartial_ + xy * betas_[4];
         return std::clamp(val, -1.05f, 1.05f);
+    }
+
+    void updateXCache(int i, float x, float xx) {
+        xCache_[i] = x * betas_[0] + xx * betas_[2];
+    }
+
+    void updateCurY(float y, float yy) {
+        yPartial_ = y * betas_[1] + yy * betas_[3] + betas_[5];
     }
 
     void updateConst() {
@@ -87,7 +83,7 @@ class Calc {
         updateConst();
     }
 
-    coef_t betas_;
+    float betas_[6];
     float bXX{}, bYY{}, bXY{};
     float angle{}, dAngle{};
     float offset{};
@@ -119,29 +115,29 @@ class Scene {
     }
     inline void drawImage(auto& image, auto& palette, float xBegin, float xStep, int IMAGE_SIZE_X, float yBegin, float yStep, int IMAGE_SIZE_Y)
     {
-        float y = yBegin;
-        int idx = 0;
-        Calc::coef_t vals;
-        vals[5] = 1.0f;
-        for (int i=0; i<IMAGE_SIZE_Y; ++i) {
-            float x = xBegin;
-            vals[1] = y;
-            vals[3] = y*y;
-            for (int j=0; j<IMAGE_SIZE_X; ++j) {
-                float val = 1;
-                vals[0] = x;
-                vals[2] = x*x;
-                vals[4] = x*y;
+        int idx=0;
+        float x,y;
+        int i,j;
+        for (x=xBegin, i=0; i<IMAGE_SIZE_X; ++i, x+=xStep) {
+            for (Calc &calc : arrCalc) {
+                calc.updateXCache(i, x, x*x);
+            }
+        }
 
+        for (y=yBegin, i=0; i<IMAGE_SIZE_Y; ++i, y+=yStep) {
+            for (Calc &calc : arrCalc) {
+                calc.updateCurY(y, y*y);
+            }
+            for (x=xBegin, j=0; j<IMAGE_SIZE_X; ++j, x+= xStep) {
+                float xy = y*x;
+                float val = 1;
                 for (Calc const &calc : arrCalc) {
-                    val *= calc.getVal(vals);
+                    val *= calc.getVal(j, xy);
                 }
 
                 val = std::clamp(val, 0.0f, 1.0f);
                 image[idx++] = palette(val);
-                x += xStep;
             }
-            y += yStep;
         }
     }
     inline void rand() {

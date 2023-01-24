@@ -11,7 +11,6 @@
 #include <math.h>
 
 class GlWinImage {
-    static constexpr uint16_t IMAGE_SIZE = 1200;
     using ImageType = Image<IMAGE_SIZE>;
     using FrameType = Frame<ImageType>;
     auto POS(auto x, auto y) { return ImageType::POS(x, y); }
@@ -30,7 +29,7 @@ class GlWinImage {
         glViewport(0, 0, width, height);
 
         auto start = std::chrono::high_resolution_clock::now();
-        drawImage(width, height);
+        drawImage();
         auto stop = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
         secondsPerFrame = std::lerp(secondsPerFrame, duration.count() / 1e6, 0.05);
@@ -73,7 +72,7 @@ class GlWinImage {
     }
 
   private:
-    void drawImage(const int width, const int height) {
+    void drawImage() {
         scene_.updateState();
         float wyBegin = -0.5f * mFrame.mScale.y + mFrame.mCentre.y;
         float wyEnd = (static_cast<float>(IMAGE_SIZE) / static_cast<float>(mFrame.VIEW_HEIGHT) -0.5f) * mFrame.mScale.y + mFrame.mCentre.y;
@@ -83,9 +82,7 @@ class GlWinImage {
         float wxEnd = (static_cast<float>(IMAGE_SIZE) / static_cast<float>(mFrame.VIEW_WIDTH) -0.5f) * mFrame.mScale.x + mFrame.mCentre.x;
         float xStep = (wxEnd - wxBegin) / static_cast<float>(IMAGE_SIZE);
 
-
         scene_.drawImage(mImage.image, mPalette, wxBegin, xStep, IMAGE_SIZE, wyBegin, yStep, IMAGE_SIZE);
-
     }
 
     void mouseEvent(GLFWwindow *window, int button, int action, [[maybe_unused]] int mods) {
