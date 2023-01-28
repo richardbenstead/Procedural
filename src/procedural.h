@@ -1,39 +1,61 @@
 #pragma once
 
 #include "utils.h"
-#include "libfixmath/fix16.hpp"
+
+#define FTYPE 0
+
+#if FTYPE==0
+    using ValType=float;
+#endif
+
+#if FTYPE==1
+    #define FIXMATH_NO_OVERFLOW
+    #define FIXMATH_NO_ROUNDING
+    #include "libfixmath/fix16.hpp"
+    #include "libfixmath/fix16.c"
+    using ValType=Fix16;
+#endif
+
+#if FTYPE==2
+    #include "fixed.h"
+    using ValType=Fixed16;
+#endif
 
 class Calc {
+
   public:
-    Calc() {
+    Calc() : lower(-1.05f), upper(1.05f) {
         randVals();
         count++;
     }
 
-    float xCache_[IMAGE_SIZE];
-    float yPartial_;
+    ValType xCache_[IMAGE_SIZE];
+    ValType yPartial_;
 
-    inline float getVal(int xIdx, float xy) const {
-        float val = xCache_[xIdx] + yPartial_ + xy * betas_[4];
-        return std::clamp(val, -1.05f, 1.05f);
+    const ValType lower;
+    const ValType upper;
+
+    inline float getVal(int xIdx, ValType xy) const {
+        ValType val = xCache_[xIdx] + yPartial_ + xy * polyXY;
+        return std::clamp(float(val), -1.05f, 1.05f);
     }
 
-    void updateXCache(int i, float x, float xx) {
-        xCache_[i] = x * betas_[0] + xx * betas_[2];
+    void updateXCache(int i, ValType x, ValType xx) {
+        xCache_[i] = x * polyX + xx * polyXX;
     }
 
-    void updateCurY(float y, float yy) {
-        yPartial_ = y * betas_[1] + yy * betas_[3] + betas_[5];
+    void updateCurY(ValType y, ValType yy) {
+        yPartial_ = y * polyY + yy * polyYY + polyXY;
     }
 
     void updateConst() {
         float invSize2 = 1.0 / (size * size);
-        betas_[0] = (-bXX * 2 * _x - bXY * _y) * invSize2; // x
-        betas_[1] = (-bYY * 2 * _y - bXY * _x) * invSize2; // y
-        betas_[2] = bXX * invSize2;
-        betas_[3] = bYY * invSize2;
-        betas_[4] = bXY * invSize2;
-        betas_[5] = (_x * _x * bXX + _y * _y * bYY + _x * _y * bXY) * invSize2 + offset;
+        polyX = (-bXX * 2 * _x - bXY * _y) * invSize2; // x
+        polyY = (-bYY * 2 * _y - bXY * _x) * invSize2; // y
+        polyXX = bXX * invSize2;
+        polyYY = bYY * invSize2;
+        polyXY = bXY * invSize2;
+        polyC = (_x * _x * bXX + _y * _y * bYY + _x * _y * bXY) * invSize2 + offset;
     }
 
     void randVals() {
@@ -83,7 +105,7 @@ class Calc {
         updateConst();
     }
 
-    float betas_[6];
+    ValType polyX, polyY, polyXX, polyYY, polyXY, polyC;
     float bXX{}, bYY{}, bXY{};
     float angle{}, dAngle{};
     float offset{};
@@ -113,10 +135,11 @@ class Scene {
         // setVals(0, -4, -4, 1, 0.5, 0, -2, 1);
         // setVals(1, 4, -4, 0.5, 1, 0, -2, 1);
     }
-    inline void drawImage(auto& image, auto& palette, float xBegin, float xStep, int IMAGE_SIZE_X, float yBegin, float yStep, int IMAGE_SIZE_Y)
+    inline void drawImage(auto& image, auto& palette, ValType xBegin, ValType xStep, int IMAGE_SIZE_X, ValType yBegin, ValType yStep, int IMAGE_SIZE_Y)
     {
         int idx=0;
-        float x,y;
+        ValType x,y;
+        // ValType val;
         int i,j;
         for (x=xBegin, i=0; i<IMAGE_SIZE_X; ++i, x+=xStep) {
             for (Calc &calc : arrCalc) {
@@ -128,15 +151,19 @@ class Scene {
             for (Calc &calc : arrCalc) {
                 calc.updateCurY(y, y*y);
             }
-            for (x=xBegin, j=0; j<IMAGE_SIZE_X; ++j, x+= xStep) {
-                float xy = y*x;
-                float val = 1;
+            for (x=xBegin, j=0; j<IMAGE_SIZE_X; ++j, x+=xStep) {
+                ValType xy = y*x;
+
+                // val.value = fix16_one;
+                float val = 1.0f;
                 for (Calc const &calc : arrCalc) {
                     val *= calc.getVal(j, xy);
                 }
 
-                val = std::clamp(val, 0.0f, 1.0f);
-                image[idx++] = palette(val);
+                float val2 = std::clamp(float(val), 0.0f, 1.0f);
+                image[idx++] = palette(val2);
+                // val = fix16_clamp(val+0.5, ValType{}, ValType{fix16_one});
+                // image[idx++] = palette(float(val));
             }
         }
     }

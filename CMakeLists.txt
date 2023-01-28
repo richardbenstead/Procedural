@@ -17,5 +17,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -DNDEBUG")
 
 set(PRJ_NAME "procedural")
 project(${PRJ_NAME})
-add_executable(${PRJ_NAME} src/main.cpp libfixmath/fix16.c)
+add_executable(${PRJ_NAME} src/main.cpp)
 target_link_libraries(${PRJ_NAME} PUBLIC GL glfw dl pthread)
