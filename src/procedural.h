@@ -28,6 +28,8 @@ class Calc {
         randVals();
         count++;
     }
+    Calc(const Calc&) = delete;
+    Calc(Calc&&) = default;
 
     ValType xCache_[IMAGE_SIZE];
     ValType yPartial_;
@@ -36,7 +38,8 @@ class Calc {
     const ValType upper;
 
     inline float getVal(int xIdx, ValType xy) const {
-        ValType val = xCache_[xIdx] + yPartial_ + xy * polyXY;
+        ValType val = sqrt(xCache_[xIdx] + yPartial_ + xy * polyXY) + offset;
+        val /= (size * size);
         return std::clamp(float(val), -1.05f, 1.05f);
     }
 
@@ -45,17 +48,26 @@ class Calc {
     }
 
     void updateCurY(ValType y, ValType yy) {
-        yPartial_ = y * polyY + yy * polyYY + polyXY;
+        yPartial_ = y * polyY + yy * polyYY;
     }
 
     void updateConst() {
-        float invSize2 = 1.0 / (size * size);
-        polyX = (-bXX * 2 * _x - bXY * _y) * invSize2; // x
-        polyY = (-bYY * 2 * _y - bXY * _x) * invSize2; // y
+        // val = bXX * (x-_x)^2 + bYY * (y-_y)^2 + c
+        // b_x x^2 - 2b_x x0x + b_x x0^2 + b_y y^2 - 2b_y y0y + b_y y0^2 + b_xy xy - b_xy x0y - b_xy y0x + b_xy x0y0
+        // -2b_x x0x - b_xy y0x
+        // -2b_y y0y -b_xy x0y
+        // b_x x^2
+        // b_y y^2
+        // b_xy xy
+        // b_x x0^2 + b_y y0^2 + b_xy x0y0
+        //
+        float invSize2 = 1.0;// / size * size;
+        polyX = (-2 * bXX * _x - bXY * _y) * invSize2; // x
+        polyY = (-2 * bYY * _y - bXY * _x) * invSize2; // y
         polyXX = bXX * invSize2;
         polyYY = bYY * invSize2;
         polyXY = bXY * invSize2;
-        polyC = (_x * _x * bXX + _y * _y * bYY + _x * _y * bXY) * invSize2 + offset;
+        polyC = (_x * _x * bXX + _y * _y * bYY + _x * _y * bXY) * invSize2;
     }
 
     void randVals() {
@@ -73,11 +85,21 @@ class Calc {
         angle = randf(2 * M_PI);
         dAngle = 0;
         bXY = cos(angle);
-        offset = -1; //randfc(2);
+        offset = -2; //randfc(2);
 
         size = 0.5 + randf(0.2);
         printVals();
         updateConst();
+    }
+
+    void setVals(float y, float x, float XX, float YY, float XY, float offs, float size) {
+        x = x;
+        y = y;
+        bXX = XX;
+        bYY = YY;
+        bXY = XY;
+        offset = offs;
+        size = size;
     }
 
     void printVals() {
@@ -87,22 +109,24 @@ class Calc {
     }
 
     void updateFromOther(float x, float y, float wgt) {
-        const auto sqr = [](float x) { return std::min(5.0f, x * x) * (x > 0 ? 1.0f : -1.0f); };
-        float maxAcc = 0.001;
-        float updRate = 0.001;
-        dx += clip(wgt * updRate / sqr(x - _x), -maxAcc, maxAcc);
-        dy += clip(wgt * updRate / sqr(y - _y), -maxAcc, maxAcc);
+        std::cout << "Update from other" << std::endl;
+        const auto sqr = [](float v) { return std::min(5.0f, v * v) * (v > 0 ? 1.0f : -1.0f); };
+        float maxAcc = 0.1;
+        float updRate = 0.1;
+        dx += clip(wgt * updRate / sqr(x - _x), -maxAcc, maxAcc) + randfc(0.05);
+        dy += clip(wgt * updRate / sqr(y - _y), -maxAcc, maxAcc) + randfc(0.05);
     }
 
     void updateVel() {
         _x += dx;
         _y += dy;
-        dAngle += randfc(0.05);
-        dAngle = clip(dAngle, -0.05, 0.05);
-        angle += dAngle;
-        bXY = cos(angle);
+        // dAngle += randfc(0.05);
+        // dAngle = clip(dAngle, -0.05, 0.05);
+        // angle += dAngle;
+        // bXY = cos(angle);
         // size += randfc(0.01) + 0.01 * (0.5 - size);
         updateConst();
+        printVals();
     }
 
     ValType polyX, polyY, polyXX, polyYY, polyXY, polyC;
@@ -115,79 +139,5 @@ class Calc {
     static int count;
 };
 
-class Scene {
-  public:
-    Scene() {
-        [[maybe_unused]] auto setVals = [&](int id, float y, float x, float XX, float YY, float XY, float offs, float size) {
-            Calc &c = arrCalc[id];
-            c._x = x;
-            c._y = y;
-            c.bXX = XX;
-            c.bYY = YY;
-            c.bXY = XY;
-            c.offset = offs;
-            c.size = size;
-            c.printVals();
-        };
-
-        // setVals(2, -4, 4, 2, 0.1, 0, -2, 1);
-        // setVals(3, 4, 4, 0.1, 2, 0, -2, 1);
-        // setVals(0, -4, -4, 1, 0.5, 0, -2, 1);
-        // setVals(1, 4, -4, 0.5, 1, 0, -2, 1);
-    }
-    inline void drawImage(auto& image, auto& palette, ValType xBegin, ValType xStep, int IMAGE_SIZE_X, ValType yBegin, ValType yStep, int IMAGE_SIZE_Y)
-    {
-        int idx=0;
-        ValType x,y;
-        // ValType val;
-        int i,j;
-        for (x=xBegin, i=0; i<IMAGE_SIZE_X; ++i, x+=xStep) {
-            for (Calc &calc : arrCalc) {
-                calc.updateXCache(i, x, x*x);
-            }
-        }
-
-        for (y=yBegin, i=0; i<IMAGE_SIZE_Y; ++i, y+=yStep) {
-            for (Calc &calc : arrCalc) {
-                calc.updateCurY(y, y*y);
-            }
-            for (x=xBegin, j=0; j<IMAGE_SIZE_X; ++j, x+=xStep) {
-                ValType xy = y*x;
-
-                // val.value = fix16_one;
-                float val = 1.0f;
-                for (Calc const &calc : arrCalc) {
-                    val *= calc.getVal(j, xy);
-                }
-
-                float val2 = std::clamp(float(val), 0.0f, 1.0f);
-                image[idx++] = palette(val2);
-                // val = fix16_clamp(val+0.5, ValType{}, ValType{fix16_one});
-                // image[idx++] = palette(float(val));
-            }
-        }
-    }
-    inline void rand() {
-        for (Calc &calc : arrCalc) {
-            calc.randVals();
-        }
-    }
-    void updateState() {
-        if (mPause) {
-            return;
-        }
-        for (Calc &calc1 : arrCalc) { // orbiting behaviour
-            for (Calc const &calc2 : arrCalc) {
-                if (calc1.id != calc2.id) {
-                    calc1.updateFromOther(calc2._x, calc2._y, 1);
-                    calc1.updateFromOther(0, 0, 2);
-                }
-            }
-            calc1.updateVel();
-        }
-    }
-    std::array<Calc, 3> arrCalc;
-    bool mPause = false;
-};
 int Calc::count = 0;
 

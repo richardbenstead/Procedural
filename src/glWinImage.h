@@ -1,5 +1,5 @@
 #pragma once
-#include "procedural.h"
+#include "scene.h"
 #include "utils.h"
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
@@ -142,5 +142,5 @@ class GlWinImage {
     bool mMouseLeftDown = false;
     XYPair mLastMousePos{};
     bool mQuit = false;
-    Scene scene_;
+    Scene2 scene_;
 };
